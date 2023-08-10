@@ -1,35 +1,43 @@
 use macroquad::prelude::*;
 mod gate;
+mod input_layout;
 use gate::*;
+use input_layout::*;
 
-#[macroquad::main("egui with macroquad")]
+#[macroquad::main("lgsim")]
 async fn main() {
     let mut gate = Gate::new(
         Rec::new(500., 500., 120., 80., RED),
-        vec![Connection::new(10., GOLD), Connection::new(10., GOLD)],
-        Connection::new(10., GOLD),
+        vec![Connection::new(10., GREEN, false); 2],
+        "GATE",
+        Connection::new(10., GREEN, false),
     );
 
+    let input_layout = InputLayout::new(vec![Connection::new(10., GREEN, false); 16]);
+
     loop {
+        let playground_offset_x: f32 = screen_width() / 20.;
+        let playground_offset_y: f32 = screen_height() / 14.;
+        let playground_width: f32 = screen_width() - playground_offset_x * 2.0;
+        let playground_height: f32 = screen_height() - playground_offset_y * 2.0;
         clear_background(color_u8!(27, 27, 27, 255));
 
         // Process keys, mouse etc.
 
-        egui_macroquad::ui(|egui_ctx| {
-            egui::Window::new("egui ❤ macroquad").show(egui_ctx, |ui| {
-                ui.label("Test");
-            });
-        });
+        draw_rectangle_lines(
+            playground_offset_x,
+            playground_offset_y,
+            playground_width,
+            playground_height,
+            6.,
+            WHITE,
+        );
 
         // Draw things before egui
-
-        // let gate2 = Gate::new(
-        //     Rec::new(700., 700., 120., 80., RED),
-        //     vec![Connection::new(10., GOLD), Connection::new(10., GOLD)],
-        // );
+        input_layout.draw();
         gate.draw();
-        // gate2.draw();
-        egui_macroquad::draw();
+
+        // egui_macroquad::draw();
 
         // Draw things after egui
 

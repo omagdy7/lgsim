@@ -17,9 +17,12 @@ enum State {
     DragStop,
 }
 
+#[derive(Debug, Clone)]
 pub struct Connection {
-    radius: f32,
-    color: Color,
+    dst: Option<Box<Connection>>,
+    pub radius: f32,
+    pub color: Color,
+    pub on: bool,
 }
 
 impl Rec {
@@ -33,24 +36,31 @@ impl Rec {
 }
 
 impl Connection {
-    pub fn new(radius: f32, color: Color) -> Connection {
-        Connection { radius, color }
+    pub fn new(radius: f32, color: Color, on: bool) -> Connection {
+        Connection {
+            dst: None,
+            radius,
+            color,
+            on,
+        }
     }
 }
 
-pub struct Gate {
+pub struct Gate<'a> {
     rect: Rec,
     input: Vec<Connection>,
     output: Connection,
+    label: &'a str,
     state: State,
 }
 
-impl Gate {
-    pub fn new(rect: Rec, input: Vec<Connection>, output: Connection) -> Gate {
+impl<'a> Gate<'a> {
+    pub fn new(rect: Rec, input: Vec<Connection>, label: &'a str, output: Connection) -> Gate {
         Gate {
             rect,
             input,
             output,
+            label,
             state: State::default(),
         }
     }
@@ -69,12 +79,10 @@ impl Gate {
             self.state = State::DragStop;
         }
 
-        println!("{:?}", self.state);
-
         match self.state {
             State::Dragging => {
-                self.rect.x = mouse_position().0;
-                self.rect.y = mouse_position().1;
+                self.rect.x = mouse_position().0 - self.rect.w / 2.0;
+                self.rect.y = mouse_position().1 - self.rect.h / 2.0;
                 self.draw_helper();
             }
             _ => {
@@ -97,15 +105,27 @@ impl Gate {
                 self.rect.x,
                 self.rect.y + 25. + (30. * cnt as f32),
                 node.radius,
-                node.color,
+                if node.on { node.color } else { GRAY },
             );
         }
+
+        draw_text(
+            self.label,
+            self.rect.x + self.rect.w / 2.0,
+            self.rect.y + self.rect.h / 2.0,
+            20.0,
+            WHITE,
+        );
 
         draw_circle(
             self.rect.x + self.rect.w,
             self.rect.y + self.rect.h / 2.,
             self.output.radius,
-            self.output.color,
+            if self.output.on {
+                self.output.color
+            } else {
+                GRAY
+            },
         );
     }
 }
