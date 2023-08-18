@@ -1,3 +1,4 @@
+use crate::wire::*;
 use macroquad::prelude::*;
 
 pub struct Rec {
@@ -19,7 +20,8 @@ enum State {
 
 #[derive(Debug, Clone)]
 pub struct Connection {
-    dst: Option<Box<Connection>>,
+    wire: Option<Box<Wire>>,
+    pub pos: (f32, f32),
     pub radius: f32,
     pub color: Color,
     pub on: bool,
@@ -33,16 +35,30 @@ impl Rec {
     fn contains(&self, pos: (f32, f32)) -> bool {
         pos.0 >= self.x && pos.0 <= self.x + self.w && pos.1 >= self.y && pos.1 <= self.y + self.h
     }
+
+    fn draw(&self) {
+        draw_rectangle(self.x, self.y, self.w, self.h, self.color);
+    }
 }
 
 impl Connection {
-    pub fn new(radius: f32, color: Color, on: bool) -> Connection {
+    pub fn new(radius: f32, pos: (f32, f32), color: Color, on: bool) -> Connection {
         Connection {
-            dst: None,
+            wire: None,
+            pos,
             radius,
             color,
             on,
         }
+    }
+
+    pub fn draw(&self) {
+        draw_circle(
+            self.pos.0,
+            self.pos.1,
+            self.radius,
+            if self.on { self.color } else { GRAY },
+        );
     }
 }
 
@@ -92,23 +108,16 @@ impl<'a> Gate<'a> {
     }
 
     fn draw_helper(&mut self) {
-        draw_rectangle(
-            self.rect.x,
-            self.rect.y,
-            self.rect.w,
-            self.rect.h,
-            self.rect.color,
-        );
+        // draws the structure of the gate
+        self.rect.draw();
 
-        for (cnt, node) in self.input.iter().enumerate() {
-            draw_circle(
-                self.rect.x,
-                self.rect.y + 25. + (30. * cnt as f32),
-                node.radius,
-                if node.on { node.color } else { GRAY },
-            );
+        // draws input
+        for (cnt, node) in self.input.iter_mut().enumerate() {
+            node.pos = (self.rect.x, self.rect.y + 25. + (30. * cnt as f32));
+            node.draw();
         }
 
+        // draws label
         draw_text(
             self.label,
             self.rect.x + self.rect.w / 2.0,
@@ -117,15 +126,8 @@ impl<'a> Gate<'a> {
             WHITE,
         );
 
-        draw_circle(
-            self.rect.x + self.rect.w,
-            self.rect.y + self.rect.h / 2.,
-            self.output.radius,
-            if self.output.on {
-                self.output.color
-            } else {
-                GRAY
-            },
-        );
+        // draws output
+        self.output.pos = (self.rect.x + self.rect.w, self.rect.y + self.rect.h / 2.);
+        self.output.draw();
     }
 }

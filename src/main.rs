@@ -1,19 +1,24 @@
 use macroquad::prelude::*;
 mod gate;
 mod input_layout;
+mod output_layout;
+mod wire;
 use gate::*;
 use input_layout::*;
+use output_layout::*;
+use wire::*;
 
 #[macroquad::main("lgsim")]
 async fn main() {
     let mut gate = Gate::new(
         Rec::new(500., 500., 120., 80., RED),
-        vec![Connection::new(10., GREEN, false); 2],
+        vec![Connection::new(10., (0.0, 0.0), GREEN, false); 2],
         "GATE",
-        Connection::new(10., GREEN, false),
+        Connection::new(10., (0.0, 0.0), GREEN, false),
     );
 
-    let input_layout = InputLayout::new(vec![Connection::new(10., GREEN, false); 16]);
+    let input_layout = InputLayout::new(vec![Connection::new(10., (0.0, 0.0), GREEN, false); 16]);
+    let output_layout = OutputLayout::new(vec![Connection::new(10., (0.0, 0.0), GREEN, false); 16]);
 
     loop {
         let playground_offset_x: f32 = screen_width() / 20.;
@@ -35,6 +40,7 @@ async fn main() {
 
         // Draw things before egui
         input_layout.draw();
+        output_layout.draw();
         gate.draw();
 
         // egui_macroquad::draw();
