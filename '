@@ -141,8 +141,8 @@ pub struct AndGate {
 impl AndGate {
     fn new(input: Vec<PinValue>, id: usize, kind: PinType) -> Self {
         if input.is_empty() {
-            let pin_1 = Pin::new(PinType::GateInput, id, 42);
-            let pin_2 = Pin::new(PinType::GateInput, id, 42);
+            let pin_1 = Pin::new(PinType::Undetermined, id, 42);
+            let pin_2 = Pin::new(PinType::Undetermined, id, 42);
             Self {
                 id,
                 input: vec![pin_1, pin_2],
@@ -170,7 +170,6 @@ impl AndGate {
         let res = (self.input[0].val.unwrap() & self.input[1].val.unwrap()) == 1;
         self.output.val = Some(res as u8);
         self.output.kind = PinType::GateOutput;
-        println!("{:?}", self);
         res
     }
 }
@@ -262,7 +261,7 @@ impl BufferGate {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Chip {
-    pub gates: Gates,
+    gates: Gates,
     pub connections: Connections,
     input: Pins,
     output: Pins,
@@ -293,7 +292,9 @@ impl Chip {
     }
 
     pub fn connect_gate(&mut self, from: &mut Gate, to: &mut Gate, to_pin_idx: usize) {
-        to.input_mut()[to_pin_idx] = Pin::new(PinType::GateInput, to.id(), 42);
+        from.evaluate();
+        to.input_mut()[to_pin_idx] =
+            Pin::new(PinType::GateInput, to.id(), from.output().val.unwrap());
         self.connections
             .entry(to.input()[to_pin_idx])
             .and_modify(|val| val.push(*from.output()))
@@ -308,17 +309,13 @@ impl Chip {
         }
     }
 
-    pub fn pins(&self) -> HashMap<usize, Vec<&Pin>> {
-        let mut pins = HashMap::new();
+    pub fn pins(&self) -> Vec<&Pin> {
+        let mut pins = vec![];
         for gate in &self.gates {
             for pin in gate.input() {
-                pins.entry(pin.id)
-                    .and_modify(|val: &mut Vec<&Pin>| val.push(pin))
-                    .or_insert_with(|| vec![pin]);
+                pins.push(pin);
             }
-            pins.entry(gate.output().id)
-                .and_modify(|val: &mut Vec<&Pin>| val.push(gate.output()))
-                .or_insert_with(|| vec![gate.output()]);
+            pins.push(gate.output());
         }
         pins
     }
@@ -335,48 +332,30 @@ impl Chip {
         dag
     }
 
-    pub fn pin_dag(&self) -> HashMap<usize, Vec<usize>> {
-        let mut gate_dag = self.gate_dag();
-        let mut dag = HashMap::new();
-        for (id, children) in gate_dag {
-            // dag.entry()
-            //     .and_modify(|val: &mut Vec<usize>| val.push(pin.gate_id))
-            //     .or_insert_with(|| vec![pin.gate_id]);
-        }
-        dag
-    }
-
-    fn simulate_helper(
-        &mut self,
-        gate: usize,
-        visited: &mut HashSet<usize>,
-        dag: &HashMap<usize, Vec<usize>>,
-    ) {
-        visited.insert(gate);
-        if dag.contains_key(&gate) {
-            for child in dag.get(&gate).unwrap() {
-                if !visited.contains(child) {
-                    self.simulate_helper(*child, visited, dag);
+    fn simulate_helper(&self, visited: &mut HashSet<usize>) {
+        let dag = self.gate_dag();
+        for pair in dag {
+            for child in pair.1 {
+                if (visited.contains(&child)) {
+                    println!(child);
+                } else {
+                    todo!();
                 }
             }
-            let pos = self.gates.iter().position(|g| g.id() == gate).unwrap();
-            self.gates[pos].evaluate();
-            println!("{}", gate);
-        } else {
-            println!("{}", gate);
-            let pos = self.gates.iter().position(|g| g.id() == gate).unwrap();
-            self.gates[pos].evaluate();
+            println!("");
+            return false;
         }
+        todo!()
     }
 
-    pub fn simulate(&mut self) -> bool {
+    fn simulate(&self) -> bool {
         let dag = self.gate_dag();
-        let mut visited = HashSet::new();
-        for child in dag.get(&8).unwrap() {
-            if !visited.contains(child) {
-                self.simulate_helper(*child, &mut visited, &dag);
+        for pair in dag {
+            for child in pair.1 {
+                print!("{:?}", child);
             }
+            println!("");
         }
-        false
+        todo!()
     }
 }
