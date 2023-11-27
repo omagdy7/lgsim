@@ -1,52 +1,77 @@
-use macroquad::prelude::*;
+#![allow(dead_code)]
 mod gate;
-mod input_layout;
-mod output_layout;
-mod wire;
-use gate::*;
-use input_layout::*;
-use output_layout::*;
-use wire::*;
+mod pin;
+mod types;
+use crate::gate::*;
+use crate::pin::*;
+use crate::types::*;
+use std::vec;
 
-#[macroquad::main("lgsim")]
-async fn main() {
-    let mut gate = Gate::new(
-        Rec::new(500., 500., 120., 80., RED),
-        vec![Connection::new(10., (0.0, 0.0), GREEN, false); 2],
-        "GATE",
-        Connection::new(10., (0.0, 0.0), GREEN, false),
-    );
+// Define a struct to represent the Circuit
+#[derive(Debug, Clone)]
+struct Circuit {
+    chips: Chips,
+}
 
-    let input_layout = InputLayout::new(vec![Connection::new(10., (0.0, 0.0), GREEN, false); 16]);
-    let output_layout = OutputLayout::new(vec![Connection::new(10., (0.0, 0.0), GREEN, false); 16]);
+impl Circuit {
+    fn new() -> Circuit {
+        Circuit { chips: Vec::new() }
+    }
 
-    loop {
-        let playground_offset_x: f32 = screen_width() / 20.;
-        let playground_offset_y: f32 = screen_height() / 14.;
-        let playground_width: f32 = screen_width() - playground_offset_x * 2.0;
-        let playground_height: f32 = screen_height() - playground_offset_y * 2.0;
-        clear_background(color_u8!(27, 27, 27, 255));
+    fn add_chip(&mut self, chip: Chip) -> usize {
+        self.chips.push(chip);
+        0
+    }
 
-        // Process keys, mouse etc.
+    fn connect_chip(&mut self, from: usize, to: usize) {
+        todo!()
+    }
 
-        draw_rectangle_lines(
-            playground_offset_x,
-            playground_offset_y,
-            playground_width,
-            playground_height,
-            6.,
-            WHITE,
-        );
-
-        // Draw things before egui
-        input_layout.draw();
-        output_layout.draw();
-        gate.draw();
-
-        // egui_macroquad::draw();
-
-        // Draw things after egui
-
-        next_frame().await;
+    fn simulate(&mut self) {
+        todo!();
     }
 }
+
+fn main() {
+    let mut _chip = Chip::new();
+    let a: u8 = 1;
+    let b: u8 = 1;
+    let input: Vec<PinValue> = vec![a, b];
+    println!("input: {:?}", input);
+    let mut gate_1 = Gate::new(GateType::And, input, PinType::ChipInput);
+    let mut gate_2 = Gate::new(GateType::Not, vec![], PinType::GateInput);
+    let mut gate_3 = Gate::new(GateType::And, vec![a], PinType::GateInput);
+    let mut gate_4 = Gate::new(GateType::Not, vec![], PinType::GateInput);
+    let mut gate_5 = Gate::new(GateType::And, vec![b], PinType::GateInput);
+    let mut gate_6 = Gate::new(GateType::Not, vec![], PinType::GateInput);
+    let mut gate_7 = Gate::new(GateType::And, vec![], PinType::GateInput);
+    let mut gate_8 = Gate::new(GateType::Not, vec![], PinType::GateInput);
+
+    let mut xor = Chip::new();
+
+    xor.connect_gate(&mut gate_1, &mut gate_2, 0);
+    xor.connect_gate(&mut gate_2, &mut gate_3, 1);
+    xor.connect_gate(&mut gate_2, &mut gate_5, 1);
+    xor.connect_gate(&mut gate_3, &mut gate_4, 0);
+    xor.connect_gate(&mut gate_5, &mut gate_6, 0);
+    xor.connect_gate(&mut gate_4, &mut gate_7, 0);
+    xor.connect_gate(&mut gate_6, &mut gate_7, 1);
+    xor.connect_gate(&mut gate_7, &mut gate_8, 0);
+
+    // let dag = xor.gate_dag();
+    let mut sorted = xor.pins();
+    sorted.sort_by(|&x, &y| x.id.cmp(&y.id));
+
+    // println!("pins: {:#?}", sorted);
+    // println!("connections: {:#?}", xor.connections);
+    // println!("dag: {:#?}", dag);
+    println!(
+        "Gate: {:?}\n output = {:?}",
+        &mut gate_8.evaluate(),
+        gate_8.clone(),
+    );
+}
+
+// #[macroquad::main("lgsim")]
+// async fn main() {
+// }
