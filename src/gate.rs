@@ -123,7 +123,6 @@ impl PartialEq for NotGate {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct AndGate {
     id: usize,
@@ -307,94 +306,134 @@ impl Chip {
         }
     }
 
-    fn add_input(&mut self, pin: Pin) {
-        self.input.push(pin);
+    pub fn add_input(&mut self, pin: Pin) {
+        self.pins.insert(pin.id, pin);
+        self.input.push(pin.id);
     }
 
-    fn add_output(&mut self, pin: Pin) {
-        self.output.push(pin);
+    pub fn add_output(&mut self, pin: Pin) {
+        self.pins.insert(pin.id, pin);
+        self.output.push(pin.id);
     }
 
-    fn add_gate(&mut self, gate: Gate) -> usize {
+    pub fn add_gate(&mut self, gate: Gate) -> usize {
+        // the output of a gate depends on its inputs
+        for pin_in in gate.input() {
+            self.connections
+                .entry(*gate.output())
+                .and_modify(|val| val.push(*pin_in))
+                .or_insert_with(|| vec![*pin_in]);
+        }
         let id = gate.id();
-        self.gates.push(gate);
+        self.gates.insert(id, gate);
         id
     }
 
-    pub fn connect_gate(&mut self, from: &mut Gate, to: &mut Gate, to_pin_idx: usize) {
-        to.input_mut()[to_pin_idx] = Pin::new(PinType::GateInput, to.id(), 42);
+    pub fn connect_gate(&mut self, from: usize, to: usize, to_pin_idx: usize) {
+        let from_pin_id = self.gates.get(&from).unwrap().output().clone();
+        let to_gate = self.gates.get_mut(&to).unwrap();
+        let mut id = 42;
+        if to_gate.input().len() < 2 {
+            id = to_gate.add_input(0, &mut self.connections)
+        }
+
+        // the inputs of some gate depends on the output of some other gate
         self.connections
-            .entry(to.input()[to_pin_idx])
-            .and_modify(|val| val.push(*from.output()))
-            .or_insert_with(|| vec![*from.output()]);
-        if !self.gates.contains(&from) {
-            // TODO: Remove this clone
-            self.add_gate(from.clone());
-        }
-        if !self.gates.contains(&to) {
-            // TODO: Remove this clone
-            self.add_gate(to.clone());
-        }
+            .entry(to_gate.input()[to_pin_idx])
+            .and_modify(|val| val.push(from_pin_id))
+            .or_insert_with(|| vec![from_pin_id]);
     }
 
-    pub fn pins(&self) -> HashMap<usize, Vec<&Pin>> {
+    pub fn pins(&self) -> HashMap<usize, &Pin> {
         let mut pins = HashMap::new();
-        for gate in &self.gates {
-            for pin in gate.input() {
-                pins.entry(pin.id)
-                    .and_modify(|val: &mut Vec<&Pin>| val.push(pin))
-                    .or_insert_with(|| vec![pin]);
+        for (_, gate) in &self.gates {
+            for (id, pin) in gate.pins() {
+                pins.insert(*id, pin);
             }
-            pins.entry(gate.output().id)
-                .and_modify(|val: &mut Vec<&Pin>| val.push(gate.output()))
-                .or_insert_with(|| vec![gate.output()]);
+        }
+        pins
+    }
+
+    pub fn pins_mut(&mut self) -> HashMap<usize, &mut Pin> {
+        let mut pins = HashMap::new();
+        for (_, gate) in &mut self.gates {
+            for (id, pin) in gate.pins_mut() {
+                pins.entry(*id).or_insert_with(|| pin);
+            }
         }
         pins
     }
 
     pub fn gate_dag(&self) -> HashMap<usize, Vec<usize>> {
+        let pins = self.pins();
         let mut dag = HashMap::new();
         for connection in &self.connections {
             for pin in connection.1 {
-                dag.entry(connection.0.gate_id)
-                    .and_modify(|val: &mut Vec<usize>| val.push(pin.gate_id))
-                    .or_insert_with(|| vec![pin.gate_id]);
+                match pins.get(connection.0).unwrap().kind {
+                    PinType::GateInput => {
+                        dag.entry(pins.get(connection.0).unwrap().gate_id)
+                            .and_modify(|val: &mut Vec<usize>| {
+                                val.push(pins.get(pin).unwrap().gate_id)
+                            })
+                            .or_insert_with(|| vec![pins.get(pin).unwrap().gate_id]);
+                    }
+                    _ => {}
+                }
             }
         }
         dag
     }
 
-    pub fn pin_dag(&self) -> HashMap<usize, Vec<usize>> {
-        let mut gate_dag = self.gate_dag();
-        let mut dag = HashMap::new();
-        for (id, children) in gate_dag {
-            // dag.entry()
-            //     .and_modify(|val: &mut Vec<usize>| val.push(pin.gate_id))
-            //     .or_insert_with(|| vec![pin.gate_id]);
-        }
-        dag
+    pub fn pin_dag(&self) -> &HashMap<usize, Vec<usize>> {
+        &self.connections
+    }
+
+    fn set_gate_pin(&mut self, gate_id: usize, pin_id: &usize, val: Option<PinValue>) {
+        println!(
+            "Propagating: gate_{} with pin_{} to val = {:?}",
+            gate_id, pin_id, val
+        );
+        self.gates.get_mut(&gate_id).unwrap().set_pin(pin_id, val);
     }
 
     fn simulate_helper(
         &mut self,
-        gate: usize,
+        gate_id: usize,
         visited: &mut HashSet<usize>,
         dag: &HashMap<usize, Vec<usize>>,
     ) {
-        visited.insert(gate);
-        if dag.contains_key(&gate) {
-            for child in dag.get(&gate).unwrap() {
+        visited.insert(gate_id);
+        if dag.contains_key(&gate_id) {
+            for child in dag.get(&gate_id).unwrap() {
                 if !visited.contains(child) {
                     self.simulate_helper(*child, visited, dag);
                 }
             }
-            let pos = self.gates.iter().position(|g| g.id() == gate).unwrap();
-            self.gates[pos].evaluate();
-            println!("{}", gate);
+            self.gates.get_mut(&gate_id).unwrap().evaluate();
+            self.propagate(gate_id);
         } else {
-            println!("{}", gate);
-            let pos = self.gates.iter().position(|g| g.id() == gate).unwrap();
-            self.gates[pos].evaluate();
+            self.gates.get_mut(&gate_id).unwrap().evaluate();
+            self.propagate(gate_id);
+        }
+    }
+
+    // TODO: Optimize this function specially the unecessary calling of self.pins()
+    fn propagate(&mut self, gate_id: usize) {
+        let pin_dag = self.pin_dag().clone();
+        let pin_out_id = self.gates.get(&gate_id).unwrap().output().clone();
+        let pin_out_val = {
+            let pins = self.pins();
+            pins.get(&pin_out_id).unwrap().val
+        };
+        let propagated_pins = pin_dag
+            .iter()
+            .filter(|(_, pins)| pins.contains(&pin_out_id));
+        for (pin_id, _) in propagated_pins {
+            let pins = self.pins();
+            if let Some(pin) = pins.get(&pin_id).cloned() {
+                let gate_id = pin.gate_id;
+                self.set_gate_pin(gate_id, pin_id, pin_out_val);
+            }
         }
     }
 
@@ -406,6 +445,6 @@ impl Chip {
                 self.simulate_helper(*child, &mut visited, &dag);
             }
         }
-        false
+        self.gates.get_mut(&8).unwrap().evaluate()
     }
 }

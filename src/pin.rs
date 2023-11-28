@@ -22,6 +22,7 @@ impl Pin {
         static mut ID: usize = 0;
         unsafe {
             ID += 1;
+            // println!("Creating pin with id: {} and gate_id: {}", ID, gate_id);
             match kind {
                 PinType::Undetermined => Pin {
                     id: ID,
