@@ -177,28 +177,38 @@ impl AndGate {
         self.pins.get(&id).expect("pin should exist")
     }
 
-#[derive(Debug, Clone)]
-pub struct OrGate {
-    id: usize,
-    input: Pins,
-    output: Pin,
-}
+    fn pin_mut(&mut self, id: usize) -> &mut Pin {
+        self.pins.get_mut(&id).expect("pin should exist")
+    }
 
-impl OrGate {
-    fn new(input: Vec<PinValue>, id: usize) -> Self {
-        let pin_1 = Pin::new(PinType::ChipInput, id, input[0]);
-        let pin_2 = Pin::new(PinType::ChipInput, id, input[1]);
-        Self {
-            id,
-            input: vec![pin_1, pin_2],
-            output: Pin::new(PinType::Undetermined, id, 42),
-        }
+    fn set_pin(&mut self, id: &usize, val: Option<PinValue>) {
+        self.pin_mut(*id).val = val;
+    }
+
+    fn add_input(&mut self, val: PinValue, connections: &mut Connections) -> usize {
+        let new_pin = Pin::new(PinType::GateInput, self.id, val);
+        self.pins.insert(new_pin.id, new_pin);
+        self.input.push(new_pin.id);
+        connections
+            .entry(self.output)
+            .and_modify(|val| val.push(new_pin.id))
+            .or_insert_with(|| vec![new_pin.id]);
+        new_pin.id
     }
 
     fn evaluate(&mut self) -> bool {
-        let res = (self.input[0].val.unwrap() | self.input[1].val.unwrap()) == 1;
-        self.output.val = Some(res as u8);
-        self.output.kind = PinType::GateOutput;
+        let res =
+            (self.pin(self.input[0]).val.unwrap() & self.pin(self.input[1]).val.unwrap()) == 1;
+        println!(
+            "input: {:?}",
+            self.input
+                .iter()
+                .map(|&x| (self.pin(x).val, self.pin(x).id))
+                .collect::<Vec<(Option<PinValue>, usize)>>()
+        );
+        println!("Evaluating gate_{} with res = {}", self.id, res);
+        self.pin_mut(self.output).val = Some(res as u8);
+        self.pin_mut(self.output).kind = PinType::GateOutput;
         res
     }
 }
@@ -206,58 +216,73 @@ impl OrGate {
 #[derive(Debug, Clone)]
 pub struct NotGate {
     id: usize,
-    input: Pins,
-    output: Pin,
+    pins: HashMap<usize, Pin>,
+    input: Vec<usize>,
+    output: usize,
 }
 
 impl NotGate {
     fn new(input: Vec<PinValue>, id: usize) -> Self {
         if input.is_empty() {
-            let pin_1 = Pin::new(PinType::Undetermined, id, 42);
+            let pin_out = Pin::new(PinType::GateOutput, id, 42);
+            let mut pins = HashMap::new();
+            pins.insert(pin_out.id, pin_out);
             Self {
                 id,
-                input: vec![pin_1],
-                output: Pin::new(PinType::Undetermined, id, 42),
+                pins,
+                input: vec![],
+                output: pin_out.id,
             }
         } else {
-            let pin_1 = Pin::new(PinType::ChipInput, id, input[0]);
+            let pin_1 = Pin::new(PinType::GateInput, id, input[0]);
+            let pin_out = Pin::new(PinType::GateOutput, id, 42);
+            let mut pins = HashMap::new();
+            pins.insert(pin_1.id, pin_1);
+            pins.insert(pin_out.id, pin_out);
             Self {
                 id,
-                input: vec![pin_1],
-                output: Pin::new(PinType::Undetermined, id, 42),
+                pins,
+                input: vec![pin_1.id],
+                output: pin_out.id,
             }
         }
     }
 
-    fn evaluate(&mut self) -> bool {
-        let res = !(self.input[0].val.unwrap() == 1);
-        self.output.val = Some(res as u8);
-        self.output.kind = PinType::GateOutput;
-        res
+    fn pin(&self, id: usize) -> &Pin {
+        self.pins.get(&id).expect("pin should exist")
     }
-}
 
-#[derive(Debug, Clone, Eq)]
-pub struct BufferGate {
-    id: usize,
-    input: Pins,
-    output: Pin,
-}
+    fn pin_mut(&mut self, id: usize) -> &mut Pin {
+        self.pins.get_mut(&id).expect("pin should exist")
+    }
 
-impl BufferGate {
-    fn new(input: Vec<PinValue>, id: usize) -> Self {
-        let pin_1 = Pin::new(PinType::ChipInput, id, input[0]);
-        Self {
-            id,
-            input: vec![pin_1],
-            output: Pin::new(PinType::Undetermined, id, 42),
-        }
+    fn set_pin(&mut self, id: &usize, val: Option<PinValue>) {
+        self.pin_mut(*id).val = val;
+    }
+
+    fn add_input(&mut self, val: PinValue, connections: &mut Connections) -> usize {
+        let new_pin = Pin::new(PinType::GateInput, self.id, val);
+        self.pins.insert(new_pin.id, new_pin);
+        self.input.push(new_pin.id);
+        connections
+            .entry(self.output)
+            .and_modify(|val| val.push(new_pin.id))
+            .or_insert_with(|| vec![new_pin.id]);
+        new_pin.id
     }
 
     fn evaluate(&mut self) -> bool {
-        let res = self.input[0].val.unwrap() == 1;
-        self.output.val = Some(res as u8);
-        self.output.kind = PinType::GateOutput;
+        let res = !(self.pin(self.input[0]).val.unwrap() == 1);
+        println!(
+            "input: {:?}",
+            self.input
+                .iter()
+                .map(|&x| (self.pin(x).val, self.pin(x).id))
+                .collect::<Vec<(Option<PinValue>, usize)>>()
+        );
+        println!("Evaluating gate_{} with res = {}", self.id, res);
+        self.pin_mut(self.output).val = Some(res as u8);
+        self.pin_mut(self.output).kind = PinType::GateOutput;
         res
     }
 }
