@@ -127,46 +127,55 @@ impl PartialEq for NotGate {
 #[derive(Debug, Clone)]
 pub struct AndGate {
     id: usize,
-    input: Pins,
-    output: Pin,
+    pins: HashMap<usize, Pin>,
+    input: Vec<usize>,
+    output: usize,
 }
 
 impl AndGate {
     fn new(input: Vec<PinValue>, id: usize, kind: PinType) -> Self {
         if input.is_empty() {
-            let pin_1 = Pin::new(PinType::GateInput, id, 42);
-            let pin_2 = Pin::new(PinType::GateInput, id, 42);
+            let pin_out = Pin::new(PinType::GateOutput, id, 42);
+            let mut pins = HashMap::new();
+            pins.insert(pin_out.id, pin_out);
             Self {
                 id,
-                input: vec![pin_1, pin_2],
-                output: Pin::new(PinType::Undetermined, id, 42),
+                pins,
+                input: vec![],
+                output: pin_out.id,
             }
         } else if input.len() == 1 {
             let pin_1 = Pin::new(kind, id, input[0]);
+            let pin_out = Pin::new(PinType::GateOutput, id, 42);
+            let mut pins = HashMap::new();
+            pins.insert(pin_1.id, pin_1);
+            pins.insert(pin_out.id, pin_out);
             Self {
                 id,
-                input: vec![pin_1, Pin::new(PinType::Undetermined, id, 42)],
-                output: Pin::new(PinType::Undetermined, id, 42),
+                pins,
+                input: vec![pin_1.id],
+                output: pin_out.id,
             }
         } else {
             let pin_1 = Pin::new(kind, id, input[0]);
             let pin_2 = Pin::new(kind, id, input[1]);
+            let pin_out = Pin::new(PinType::GateOutput, id, 42);
+            let mut pins = HashMap::new();
+            pins.insert(pin_1.id, pin_1);
+            pins.insert(pin_2.id, pin_2);
+            pins.insert(pin_out.id, pin_out);
             Self {
                 id,
-                input: vec![pin_1, pin_2],
-                output: Pin::new(PinType::Undetermined, id, 42),
+                pins,
+                input: vec![pin_1.id, pin_2.id],
+                output: pin_out.id,
             }
         }
     }
 
-    fn evaluate(&mut self) -> bool {
-        let res = (self.input[0].val.unwrap() & self.input[1].val.unwrap()) == 1;
-        self.output.val = Some(res as u8);
-        self.output.kind = PinType::GateOutput;
-        println!("{:?}", self);
-        res
+    pub fn pin(&self, id: usize) -> &Pin {
+        self.pins.get(&id).expect("pin should exist")
     }
-}
 
 #[derive(Debug, Clone)]
 pub struct OrGate {
