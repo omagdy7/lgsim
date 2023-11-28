@@ -291,8 +291,9 @@ impl NotGate {
 pub struct Chip {
     pub gates: Gates,
     pub connections: Connections,
-    input: Pins,
-    output: Pins,
+    pins: HashMap<usize, Pin>,
+    input: Vec<usize>,
+    output: Vec<usize>,
 }
 
 impl Chip {
@@ -300,8 +301,9 @@ impl Chip {
         Chip {
             gates: Gates::new(),
             connections: HashMap::new(),
-            input: Pins::new(),
-            output: Pins::new(),
+            pins: HashMap::new(),
+            input: vec![],
+            output: vec![],
         }
     }
 
