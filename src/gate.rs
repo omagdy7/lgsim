@@ -6,18 +6,14 @@ use std::collections::HashSet;
 #[derive(Debug)]
 pub enum GateType {
     And,
-    Or,
     Not,
-    Buffer,
     Chip,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Gate {
     And(AndGate),
-    Or(OrGate),
     Not(NotGate),
-    Buffer(BufferGate),
     Chip(Chip),
 }
 
@@ -28,9 +24,7 @@ impl Gate {
             ID += 1;
             match gate_type {
                 GateType::And => Gate::And(AndGate::new(input, ID, kind)),
-                GateType::Or => Gate::Or(OrGate::new(input, ID)),
                 GateType::Not => Gate::Not(NotGate::new(input, ID)),
-                GateType::Buffer => Gate::Buffer(BufferGate::new(input, ID)),
                 GateType::Chip => Gate::Chip(Chip::new()),
             }
         }
@@ -39,69 +33,79 @@ impl Gate {
     pub fn evaluate(&mut self) -> bool {
         match self {
             Gate::And(gate) => gate.evaluate(),
-
-            Gate::Or(gate) => gate.evaluate(),
-
             Gate::Not(gate) => gate.evaluate(),
-
-            Gate::Buffer(gate) => gate.evaluate(),
-
             Gate::Chip(chip) => chip.simulate(),
         }
     }
 
-    fn input(&self) -> &Pins {
+    fn add_input(&mut self, val: PinValue, connections: &mut Connections) -> usize {
         match self {
-            Gate::And(gate) => &gate.input,
-
-            Gate::Or(gate) => &gate.input,
-
-            Gate::Not(gate) => &gate.input,
-
-            Gate::Buffer(gate) => &gate.input,
-
-            Gate::Chip(chip) => &chip.input,
-        }
-    }
-
-    fn input_mut(&mut self) -> &mut Pins {
-        match self {
-            Gate::And(gate) => &mut gate.input,
-
-            Gate::Or(gate) => &mut gate.input,
-
-            Gate::Not(gate) => &mut gate.input,
-
-            Gate::Buffer(gate) => &mut gate.input,
-
-            Gate::Chip(chip) => &mut chip.input,
-        }
-    }
-
-    fn output(&self) -> &Pin {
-        match self {
-            Gate::And(gate) => &gate.output,
-
-            Gate::Or(gate) => &gate.output,
-
-            Gate::Not(gate) => &gate.output,
-
-            Gate::Buffer(gate) => &gate.output,
-
+            Gate::And(gate) => gate.add_input(val, connections),
+            Gate::Not(gate) => gate.add_input(val, connections),
             Gate::Chip(_) => todo!(),
         }
     }
 
-    fn id(&self) -> usize {
+    fn pins(&self) -> &HashMap<usize, Pin> {
+        match self {
+            Gate::And(gate) => &gate.pins,
+            Gate::Not(gate) => &gate.pins,
+            Gate::Chip(_) => todo!(),
+        }
+    }
+
+    fn pins_mut(&mut self) -> &mut HashMap<usize, Pin> {
+        match self {
+            Gate::And(gate) => &mut gate.pins,
+            Gate::Not(gate) => &mut gate.pins,
+            Gate::Chip(_) => todo!(),
+        }
+    }
+
+    fn set_pin(&mut self, id: &usize, val: Option<PinValue>) {
+        match self {
+            Gate::And(gate) => gate.set_pin(id, val),
+            Gate::Not(gate) => gate.set_pin(id, val),
+            Gate::Chip(_) => todo!(),
+        }
+    }
+
+    fn input(&self) -> &Vec<usize> {
+        match self {
+            Gate::And(gate) => &gate.input,
+            Gate::Not(gate) => &gate.input,
+            Gate::Chip(chip) => &chip.input,
+        }
+    }
+
+    pub fn pin(&self, id: usize) -> &Pin {
+        match self {
+            Gate::And(gate) => gate.pin(id),
+            Gate::Not(gate) => gate.pin(id),
+            Gate::Chip(_) => todo!(),
+        }
+    }
+
+    fn pin_mut(&mut self, id: usize) -> &Pin {
+        match self {
+            Gate::And(gate) => gate.pin_mut(id),
+            Gate::Not(gate) => gate.pin_mut(id),
+            Gate::Chip(_) => todo!(),
+        }
+    }
+
+    fn output(&self) -> &usize {
+        match self {
+            Gate::And(gate) => &gate.output,
+            Gate::Not(gate) => &gate.output,
+            Gate::Chip(_) => todo!(),
+        }
+    }
+
+    pub fn id(&self) -> usize {
         match self {
             Gate::And(gate) => gate.id,
-
-            Gate::Or(gate) => gate.id,
-
             Gate::Not(gate) => gate.id,
-
-            Gate::Buffer(gate) => gate.id,
-
             Gate::Chip(_) => 0,
         }
     }
@@ -113,23 +117,12 @@ impl PartialEq for AndGate {
     }
 }
 
-impl PartialEq for OrGate {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
 impl PartialEq for NotGate {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl PartialEq for BufferGate {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct AndGate {
